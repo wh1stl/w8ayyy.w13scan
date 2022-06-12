@@ -65,18 +65,16 @@ def single_scan(url:str,cookies:str='w13scan=1;',threads:int=30,timeout:int=30,s
     ```
     """
 
-    import requests
-    import sys
-    sys.path.insert(0, "/w13scan")
-    root = "/w13scan/W13SCAN"
-    sys.path.insert(0, root)
-    from W13SCAN.api import init,FakeReq,FakeResp,HTTPMETHOD,task_push_from_name,start,KB
-    import logging
-    logger = logging.getLogger("lev")
-    logger.setLevel(logging.INFO)
-
     @levrt.remote
     def entry():
+        import sys
+        sys.path.append("/usr/local/lib/python3.10/site-packages")
+        sys.path.append("/w13scan")
+        root = "/w13scan/W13SCAN"
+        sys.path.append(root)
+
+        import requests
+        from W13SCAN.api import init,FakeReq,FakeResp,HTTPMETHOD,task_push_from_name,start,KB
         disable_plugins = ['poc_fastjson','struts2_032','struts2_045']
         sql_plugins = [
             'sqli_bool',
@@ -119,7 +117,7 @@ def single_scan(url:str,cookies:str='w13scan=1;',threads:int=30,timeout:int=30,s
             "able": [],
             "excludes": ["google", "lastpass", '.gov.cn']  # 不扫描的网址
         }
-        logger.info("启动w13scan")
+        print("[*] 启动w13scan")
         init(root, configure)
         headers = {}
         req = requests.get(url, headers=headers)
@@ -127,9 +125,9 @@ def single_scan(url:str,cookies:str='w13scan=1;',threads:int=30,timeout:int=30,s
         fake_resp = FakeResp(req.status_code, req.content, req.headers)
         task_push_from_name('loader', fake_req, fake_resp)
         start()
-        logging.info('漏洞扫描完毕，漏洞数量:{}'.format(len(KB["output"].collect)))
-        ctx.set("callback",KB["output"].collect)
-    return Cr("991c0d6f5f85", entry=entry())
+        print('[*] 漏洞扫描完毕，漏洞数量:{}'.format(len(KB["output"].collect)))
+        # ctx.set("callback",KB["output"].collect)
+    return Cr("lev-w13scan:latest", entry=entry())
 
 def fullscan(url):
     pass
@@ -142,7 +140,7 @@ def fullscan(url):
             annot.Param("max_count", "爬虫爬取最大数量"),
             ],
 )
-async def spider(url:str,cookies:str="w13scan=1;",thread_num:int=20,max_count:int=10086) -> Cr:
+def spider(url:str,cookies:str="w13scan=1;",thread_num:int=20,max_count:int=10086) -> Cr:
     """
     爬虫模式
 
@@ -160,7 +158,7 @@ async def spider(url:str,cookies:str="w13scan=1;",thread_num:int=20,max_count:in
         logger.info("爬虫爬取数量:{}".format(len(callback)))
         ctx.set("callback",callback)
 
-    return Cr("991c0d6f5f85", entry=entry())
+    return Cr("lev-w13scan:latest", entry=entry())
 
 __lev__ = annot.meta([spider,single_scan],
                      cats={

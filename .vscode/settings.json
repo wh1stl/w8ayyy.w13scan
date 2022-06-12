@@ -1,0 +1,11 @@
+{
+    "files.exclude": {
+        "**/__pypackages__": true
+    },
+    "python.autoComplete.extraPaths": [
+        "__pypackages__/3.10/lib"
+    ],
+    "python.analysis.extraPaths": [
+        "__pypackages__/3.10/lib"
+    ],
+}

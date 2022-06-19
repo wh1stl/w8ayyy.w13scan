@@ -10,10 +10,12 @@ FROM python:3.10.5-alpine
 
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 RUN apk update && apk --no-cache add git build-base libffi-dev libxml2-dev libxslt-dev libressl-dev gcc chromium
-RUN cd / && git clone https://github.com/w-digital-scanner/w13scan
+# RUN cd / && git clone https://github.com/w-digital-scanner/w13scan
+RUN mkdir -p w13scan/
 COPY requirements.txt /w13scan/requirements.txt
 RUN pip install -r /w13scan/requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 COPY --from=build-stage /crawlergo/cmd/crawlergo/crawlergo /usr/bin
 RUN chmod 777 /usr/bin/crawlergo
+ADD W13SCAN /w13scan/W13SCAN
 WORKDIR /w13scan/W13SCAN
 ENTRYPOINT ["/bin/ash"]

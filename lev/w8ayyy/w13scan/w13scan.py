@@ -106,7 +106,7 @@ def single_scan(url:str,cookies:str='w13scan=1;',threads:int=30,timeout:int=30,s
             disable_plugins.extend(backup_plugins)
         
         configure = {
-            "debug": False,  # debug模式会显示更多信息
+            "debug": True,  # debug模式会显示更多信息
             "level": 2,
             "timeout": timeout,
             "retry": 3,
@@ -121,16 +121,13 @@ def single_scan(url:str,cookies:str='w13scan=1;',threads:int=30,timeout:int=30,s
         init(root, configure)
         headers = {}
         req = requests.get(url, headers=headers)
-        fake_req = FakeReq(req.url, {}, HTTPMETHOD.GET)
+        fake_req = FakeReq(req.url, headers, HTTPMETHOD.GET)
         fake_resp = FakeResp(req.status_code, req.content, req.headers)
         task_push_from_name('loader', fake_req, fake_resp)
         start()
         print('[*] 漏洞扫描完毕，漏洞数量:{}'.format(len(KB["output"].collect)))
-        # ctx.set("callback",KB["output"].collect)
+        ctx.set(callback=KB["output"].collect)
     return Cr("lev-w13scan:latest", entry=entry())
-
-def fullscan(url):
-    pass
 
 @annot.meta(
     desc="chromium动态爬虫",
@@ -148,19 +145,128 @@ def spider(url:str,cookies:str="w13scan=1;",thread_num:int=20,max_count:int=1008
     await spider(url,cookies,thread_num,max_count)
     ```
     """
-    import logging
-    logger = logging.getLogger("lev")
-    logger.setLevel(logging.INFO)
 
     @levrt.remote
     def entry():
+        import logging
+        logger = logging.getLogger("lev")
+        logger.setLevel(logging.INFO)
         callback = _spider(url,cookies,thread_num,max_count)
         logger.info("爬虫爬取数量:{}".format(len(callback)))
         ctx.set("callback",callback)
 
     return Cr("lev-w13scan:latest", entry=entry())
 
-__lev__ = annot.meta([spider,single_scan],
+@annot.meta(
+    desc="标准模式，爬虫+漏洞扫描",
+    params=[annot.Param("url", "目标URL"),
+            annot.Param("cookies", "Cookies",holder="debug=1;w13scan=1;"),
+            annot.Param("thread_num", "线程数"),
+            annot.Param("max_count", "爬虫爬取最大数量"),
+             annot.Param("timeout", "超时时间"),
+            annot.Param("sql", "是否启用sql注入扫描"),
+            annot.Param("command", "是否启用命令执行扫描"),
+            annot.Param("xss", "是否启用xss扫描"),
+            annot.Param("backup", "是否启用备份文件扫描"),
+            ],
+)
+def fullscan(url,cookies:str="w13scan=1;",thread_num:int=20,max_count:int=10086,timeout:int=30,sql:bool=True,command:bool=True,xss:bool=True,backup:bool=True)->Cr:
+    """
+    漏洞扫描标准模式
+    """
+    
+    @levrt.remote
+    def entry():
+        import logging
+        logger = logging.getLogger("lev")
+        logger.setLevel(logging.INFO)
+        callback = _spider(url,cookies,thread_num,max_count)
+        logger.info("爬虫爬取数量:{}".format(len(callback)))
+
+        import sys
+        sys.path.append("/usr/local/lib/python3.10/site-packages")
+        sys.path.append("/w13scan")
+        root = "/w13scan/W13SCAN"
+        sys.path.append(root)
+
+        import requests
+        from W13SCAN.api import init,FakeReq,FakeResp,HTTPMETHOD,task_push_from_name,start,KB
+        disable_plugins = ['poc_fastjson','struts2_032','struts2_045']
+        sql_plugins = [
+            'sqli_bool',
+            'sqli_error',
+            'sqli_time'
+        ]
+        if not sql:
+            disable_plugins.extend(sql_plugins)
+        command_plugins = [
+            'command_asp_code',
+            'command_php_code',
+            'command_system'
+        ]
+        if not command:
+            disable_plugins.extend(command_plugins)
+        xss_plugins = [
+            'xss'
+            'net_xss',
+            'swf_files'
+        ]
+        if not xss:
+            disable_plugins.extend(xss_plugins)
+        backup_plugins =  [
+            'backup_file',
+            'backup_folder',
+            'backup_domain',
+        ]
+        if not backup:
+            disable_plugins.extend(backup_plugins)
+        
+        configure = {
+            "debug": True,  # debug模式会显示更多信息
+            "level": 2,
+            "timeout": timeout,
+            "retry": 3,
+            "json": "",  # 自定义输出json结果路径,
+            "html": False,
+            "threads": thread_num,  # 线程数量,
+            "disable": disable_plugins,
+            "able": [],
+            "excludes": ["google", "lastpass", '.gov.cn']  # 不扫描的网址
+        }
+        print("[*] 启动w13scan")
+        init(root, configure)
+        for item in callback:
+            url = item["url"]
+            method = item["method"]
+            headers = item["headers"]
+            data = item["data"]
+
+            try:
+                if method.lower() == 'post':
+                    req = requests.post(url, data=data, headers=headers)
+                    http_model = HTTPMETHOD.POST
+                else:
+                    req = requests.get(url, headers=headers)
+                    http_model = HTTPMETHOD.GET
+            except Exception as e:
+                logger.error("request method:{} url:{} faild,{}".format(method, url, e))
+                continue
+
+            fake_req = FakeReq(req.url, {}, http_model, data)
+            fake_resp = FakeResp(req.status_code, req.content, req.headers)
+            task_push_from_name('loader', fake_req, fake_resp)
+            logger.info("加入扫描目标:{}".format(req.url))
+
+        start()
+        print('[*] 漏洞扫描完毕，漏洞数量:{}'.format(len(KB["output"].collect)))
+        ctx.set(callback=KB["output"].collect)
+
+
+
+    return Cr("lev-w13scan:latest", entry=entry())
+
+
+__lev__ = annot.meta([fullscan,spider,single_scan],
                      cats={
                         Attck: [Attck.Reconnaissance,Attck.InitialAccess,Attck.Discovery]  # ATT&CK
                         },

@@ -12,8 +12,8 @@ def _spider(target: str, cookies: str = "", thread_num: int = 20, max_count: int
     import json
     import subprocess
     import logging
-    logger = logging.getLogger("lev")
-    logger.setLevel(logging.INFO)
+
+    print("启动spider")
 
     # 爬虫文件路径
     Excvpath = "/usr/bin/crawlergo"
@@ -30,7 +30,7 @@ def _spider(target: str, cookies: str = "", thread_num: int = 20, max_count: int
         return
     elif "://" not in target:
         target = "http://" + target
-    logger.info("Target:{}".format(target))
+    print("Target:{}".format(target))
 
     cmd = [Excvpath, "-c", Chromepath, "--fuzz-path", "--robots-path", "-t", str(thread_num), "--custom-headers",
            json.dumps(
@@ -158,10 +158,8 @@ def spider(url: str, cookies: str = "w13scan=1;", thread_num: int = 20, max_coun
     @levrt.remote
     def entry():
         import logging
-        logger = logging.getLogger("lev")
-        logger.setLevel(logging.INFO)
         callback = _spider(url, cookies, thread_num, max_count)
-        logger.info("爬虫爬取数量:{}".format(len(callback)))
+        print("爬虫爬取数量:{}".format(len(callback)))
         ctx.set("callback", callback)
     return Cr(".w8ayyy.w13scan:v0.1", entry=entry())
 

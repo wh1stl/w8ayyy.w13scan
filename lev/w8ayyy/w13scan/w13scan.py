@@ -8,7 +8,7 @@ from levrt.annot.cats import Attck
 from urllib.parse import urlparse
 
 
-def _spider(target:str,cookies:str="",thread_num:int=20,max_count:int=10086)->list:
+def _spider(target: str, cookies: str = "", thread_num: int = 20, max_count: int = 10086) -> list:
     import json
     import subprocess
     import logging
@@ -33,7 +33,8 @@ def _spider(target:str,cookies:str="",thread_num:int=20,max_count:int=10086)->li
     logger.info("Target:{}".format(target))
 
     cmd = [Excvpath, "-c", Chromepath, "--fuzz-path", "--robots-path", "-t", str(thread_num), "--custom-headers",
-           json.dumps(headers), "--max-crawled-count", str(max_count), "-i", "-o", "json",
+           json.dumps(
+               headers), "--max-crawled-count", str(max_count), "-i", "-o", "json",
            target]
     rsp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = rsp.communicate()
@@ -44,10 +45,11 @@ def _spider(target:str,cookies:str="",thread_num:int=20,max_count:int=10086)->li
     all_req_list = result["req_list"]
     return all_req_list
 
+
 @annot.meta(
     desc="对单个url进行漏洞扫描",
     params=[annot.Param("url", "目标URL"),
-            annot.Param("cookies", "Cookies",holder="debug=1;w13scan=1;"),
+            annot.Param("cookies", "Cookies", holder="debug=1;w13scan=1;"),
             annot.Param("threads", "线程数"),
             annot.Param("timeout", "超时时间"),
             annot.Param("sql", "是否启用sql注入扫描"),
@@ -56,7 +58,7 @@ def _spider(target:str,cookies:str="",thread_num:int=20,max_count:int=10086)->li
             annot.Param("backup", "是否启用备份文件扫描"),
             ],
 )
-def single_scan(url:str,cookies:str='w13scan=1;',threads:int=30,timeout:int=30,sql:bool=True,command:bool=True,xss:bool=True,backup:bool=True)->Cr:
+def single_scan(url: str, cookies: str = 'w13scan=1;', threads: int = 30, timeout: int = 30, sql: bool = True, command: bool = True, xss: bool = True, backup: bool = True) -> Cr:
     """
     单个漏洞扫描
 
@@ -74,8 +76,8 @@ def single_scan(url:str,cookies:str='w13scan=1;',threads:int=30,timeout:int=30,s
         sys.path.append(root)
 
         import requests
-        from W13SCAN.api import init,FakeReq,FakeResp,HTTPMETHOD,task_push_from_name,start,KB
-        disable_plugins = ['poc_fastjson','struts2_032','struts2_045']
+        from W13SCAN.api import init, FakeReq, FakeResp, HTTPMETHOD, task_push_from_name, start, KB
+        disable_plugins = ['poc_fastjson', 'struts2_032', 'struts2_045']
         sql_plugins = [
             'sqli_bool',
             'sqli_error',
@@ -97,14 +99,14 @@ def single_scan(url:str,cookies:str='w13scan=1;',threads:int=30,timeout:int=30,s
         ]
         if not xss:
             disable_plugins.extend(xss_plugins)
-        backup_plugins =  [
+        backup_plugins = [
             'backup_file',
             'backup_folder',
             'backup_domain',
         ]
         if not backup:
             disable_plugins.extend(backup_plugins)
-        
+
         configure = {
             "debug": True,  # debug模式会显示更多信息
             "level": 2,
@@ -125,19 +127,26 @@ def single_scan(url:str,cookies:str='w13scan=1;',threads:int=30,timeout:int=30,s
         fake_resp = FakeResp(req.status_code, req.content, req.headers)
         task_push_from_name('loader', fake_req, fake_resp)
         start()
-        print('[*] 漏洞扫描完毕，漏洞数量:{}'.format(len(KB["output"].collect)))
-        ctx.set(callback=KB["output"].collect)
-    return Cr("lev-w13scan:latest", entry=entry())
+        count = len(KB["output"].collect)
+        print('[*] 漏洞扫描完毕，漏洞数量:{}'.format(count))
+        if count>0:
+            ctx.set(callback=KB["output"].collect)
+            filename = KB["output"].get_html_filename()
+            with open(filename,'rb') as f:
+                data = f.read()
+                ctx.set(result={"results.html":data})
+    return Cr(".w8ayyy.w13scan:v0.1", entry=entry())
+
 
 @annot.meta(
     desc="chromium动态爬虫",
     params=[annot.Param("url", "目标URL"),
-            annot.Param("cookies", "Cookies",holder="debug=1;w13scan=1;"),
+            annot.Param("cookies", "Cookies", holder="debug=1;w13scan=1;"),
             annot.Param("thread_num", "线程数"),
             annot.Param("max_count", "爬虫爬取最大数量"),
             ],
 )
-def spider(url:str,cookies:str="w13scan=1;",thread_num:int=20,max_count:int=10086) -> Cr:
+def spider(url: str, cookies: str = "w13scan=1;", thread_num: int = 20, max_count: int = 10086) -> Cr:
     """
     爬虫模式
 
@@ -151,37 +160,40 @@ def spider(url:str,cookies:str="w13scan=1;",thread_num:int=20,max_count:int=1008
         import logging
         logger = logging.getLogger("lev")
         logger.setLevel(logging.INFO)
-        callback = _spider(url,cookies,thread_num,max_count)
+        callback = _spider(url, cookies, thread_num, max_count)
         logger.info("爬虫爬取数量:{}".format(len(callback)))
-        ctx.set("callback",callback)
+        ctx.set("callback", callback)
+    return Cr(".w8ayyy.w13scan:v0.1", entry=entry())
 
-    return Cr("lev-w13scan:latest", entry=entry())
 
 @annot.meta(
     desc="标准模式，爬虫+漏洞扫描",
     params=[annot.Param("url", "目标URL"),
-            annot.Param("cookies", "Cookies",holder="debug=1;w13scan=1;"),
+            annot.Param("cookies", "Cookies", holder="debug=1;w13scan=1;"),
             annot.Param("thread_num", "线程数"),
             annot.Param("max_count", "爬虫爬取最大数量"),
-             annot.Param("timeout", "超时时间"),
+            annot.Param("timeout", "超时时间"),
             annot.Param("sql", "是否启用sql注入扫描"),
             annot.Param("command", "是否启用命令执行扫描"),
             annot.Param("xss", "是否启用xss扫描"),
             annot.Param("backup", "是否启用备份文件扫描"),
             ],
 )
-def fullscan(url,cookies:str="w13scan=1;",thread_num:int=20,max_count:int=10086,timeout:int=30,sql:bool=True,command:bool=True,xss:bool=True,backup:bool=True)->Cr:
+def fullscan(url: str, cookies: str = "w13scan=1;", thread_num: int = 20, max_count: int = 10086, timeout: int = 30, sql: bool = True, command: bool = True, xss: bool = True, backup: bool = True) -> Cr:
     """
     漏洞扫描标准模式
+    ```
+    await fullscan(url,cookies,thread_num,max_count,timeout,sql,command,xss,backup)
+    ```
     """
-    
+
     @levrt.remote
     def entry():
         import logging
         logger = logging.getLogger("lev")
         logger.setLevel(logging.INFO)
-        callback = _spider(url,cookies,thread_num,max_count)
-        logger.info("爬虫爬取数量:{}".format(len(callback)))
+        callback = _spider(url, cookies, thread_num, max_count)
+        print("爬虫爬取数量:{}".format(len(callback)))
 
         import sys
         sys.path.append("/usr/local/lib/python3.10/site-packages")
@@ -190,8 +202,8 @@ def fullscan(url,cookies:str="w13scan=1;",thread_num:int=20,max_count:int=10086,
         sys.path.append(root)
 
         import requests
-        from W13SCAN.api import init,FakeReq,FakeResp,HTTPMETHOD,task_push_from_name,start,KB
-        disable_plugins = ['poc_fastjson','struts2_032','struts2_045']
+        from W13SCAN.api import init, FakeReq, FakeResp, HTTPMETHOD, task_push_from_name, start, KB
+        disable_plugins = ['poc_fastjson', 'struts2_032', 'struts2_045']
         sql_plugins = [
             'sqli_bool',
             'sqli_error',
@@ -213,21 +225,21 @@ def fullscan(url,cookies:str="w13scan=1;",thread_num:int=20,max_count:int=10086,
         ]
         if not xss:
             disable_plugins.extend(xss_plugins)
-        backup_plugins =  [
+        backup_plugins = [
             'backup_file',
             'backup_folder',
             'backup_domain',
         ]
         if not backup:
             disable_plugins.extend(backup_plugins)
-        
+
         configure = {
             "debug": True,  # debug模式会显示更多信息
             "level": 2,
             "timeout": timeout,
             "retry": 3,
             "json": "",  # 自定义输出json结果路径,
-            "html": False,
+            "html": True,
             "threads": thread_num,  # 线程数量,
             "disable": disable_plugins,
             "able": [],
@@ -236,20 +248,21 @@ def fullscan(url,cookies:str="w13scan=1;",thread_num:int=20,max_count:int=10086,
         print("[*] 启动w13scan")
         init(root, configure)
         for item in callback:
-            url = item["url"]
+            url1 = item["url"]
             method = item["method"]
             headers = item["headers"]
             data = item["data"]
 
             try:
                 if method.lower() == 'post':
-                    req = requests.post(url, data=data, headers=headers)
+                    req = requests.post(url1, data=data, headers=headers)
                     http_model = HTTPMETHOD.POST
                 else:
-                    req = requests.get(url, headers=headers)
+                    req = requests.get(url1, headers=headers)
                     http_model = HTTPMETHOD.GET
             except Exception as e:
-                logger.error("request method:{} url:{} faild,{}".format(method, url, e))
+                logger.error(
+                    "request method:{} url:{} faild,{}".format(method, url1, e))
                 continue
 
             fake_req = FakeReq(req.url, {}, http_model, data)
@@ -258,17 +271,21 @@ def fullscan(url,cookies:str="w13scan=1;",thread_num:int=20,max_count:int=10086,
             logger.info("加入扫描目标:{}".format(req.url))
 
         start()
-        print('[*] 漏洞扫描完毕，漏洞数量:{}'.format(len(KB["output"].collect)))
-        ctx.set(callback=KB["output"].collect)
+        count = len(KB["output"].collect)
+        print('[*] 漏洞扫描完毕，漏洞数量:{}'.format(count))
+        if count>0:
+            ctx.set(callback=KB["output"].collect)
+            filename = KB["output"].get_html_filename()
+            with open(filename,'rb') as f:
+                data = f.read()
+                ctx.set(result={"results.html":data})
+
+    return Cr(".w8ayyy.w13scan:v0.1", entry=entry())
 
 
-
-    return Cr("lev-w13scan:latest", entry=entry())
-
-
-__lev__ = annot.meta([fullscan,spider,single_scan],
+__lev__ = annot.meta([fullscan, spider, single_scan],
                      cats={
-                        Attck: [Attck.Reconnaissance,Attck.InitialAccess,Attck.Discovery]  # ATT&CK
-                        },
-                    tags=['w13scan','web漏洞扫描'],
-                    )
+    Attck: [Attck.Reconnaissance, Attck.InitialAccess, Attck.Discovery]  # ATT&CK
+},
+    tags=['w13scan', 'web漏洞扫描'],
+)
